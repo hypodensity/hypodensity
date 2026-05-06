@@ -28,11 +28,11 @@ class rNCCTConfig:
         default=False,
         help="Produce additional output, such as registration movies",
     )
-    xy_std: float = arg(default=5.0, help="xy gauss sigma", metavar="float")
+    xy_std: float = arg(default=5.0, help="xy gauss sigma (in mm)", metavar="float")
     colormap_range: str = arg(
         default="3,10", help="Colormap range. 3,10 means 3%%-10%%", metavar="float"
     )
-    z_std: float = arg(default=5.0, help="z gauss sigma", metavar="float")
+    z_std: float = arg(default=5.0, help="z gauss sigma (in mm)", metavar="float")
     max_accept_HU: float = arg(
         default=45.0, help="ignore HU above this value", metavar="float"
     )

@@ -257,7 +257,7 @@ def xform_point_set(
 
     txt = open(os.path.join(tdir, "outputpoints.txt")).read()
 
-    m = re.findall("OutputPoint = \[ ([0-9.-]+ [0-9.-]+ [0-9.-]+)", txt)
+    m = re.findall(r"OutputPoint = \[ ([0-9.-]+ [0-9.-]+ [0-9.-]+)", txt)
     new_coords = [np.fromstring(k, sep=" ") for k in m]
     shutil.rmtree(tdir)
     return new_coords

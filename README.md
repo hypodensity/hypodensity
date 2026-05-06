@@ -13,21 +13,11 @@ DICOM/NIfTI input → template registration → brain masking → flip-to-self r
 Requires Python 3.10 or later.
 
 ```bash
-pip install hypodensity
-```
-
-Or with [uv](https://docs.astral.sh/uv/):
-
-```bash
-uv add hypodensity
-```
-
-### Install from source
-
-```bash
-git clone https://github.com/sorenchr2011/hypodensity.git
+git clone git@github.com:hypodensity/hypodensity.git
 cd hypodensity
-uv sync
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
 ## Usage
@@ -51,8 +41,8 @@ run_rncct -i /path/to/scan.nii.gz -o /path/to/output_folder
 | `-t` | off | Resample thin slices (<3 mm) to ~5 mm spacing |
 | `--thresholds` | `1,4.9` | Comma-separated HU depression thresholds for volume calculation |
 | `--colormap_range` | `3,10` | Colormap percentile range for overlay rendering |
-| `--xy_std` | `5.0` | Gaussian smoothing sigma in the XY plane |
-| `--z_std` | `5.0` | Gaussian smoothing sigma along Z |
+| `--xy_std` | `5.0` | Gaussian smoothing sigma in the XY plane (in mm) |
+| `--z_std` | `5.0` | Gaussian smoothing sigma along Z (in mm) |
 | `--max_accept_HU` | `45.0` | Ignore voxels above this HU value |
 | `-d` | off | Debug mode: produce additional outputs (e.g. registration movies) |
 | `--version` | — | Print version and exit |
@@ -77,6 +67,10 @@ If you use this software in research, please cite:
   doi     = {10.1161/STROKEAHA.123.044058}
 }
 ```
+
+## Help
+Please use the dscussion tab in the github link
+
 
 ## License
 
