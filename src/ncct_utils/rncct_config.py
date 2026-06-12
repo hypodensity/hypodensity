@@ -6,10 +6,10 @@ from datargs import arg
 
 @dataclass
 class rNCCTConfig:
-    output: Optional[str] = arg(
+    output: str = arg(
         "-o", default=None, help="output, DICOM format", metavar="url"
     )
-    input: Optional[str] = arg(
+    input: str = arg(
         "-i",
         default=None,
         help="either a) input DICOM folder with a single series or b) a nifti file",

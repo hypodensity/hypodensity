@@ -9,6 +9,7 @@ from pathlib import Path
 
 import cv2
 import imageio
+from imageio import config
 import itk
 import matplotlib as mpl
 import numpy as np
@@ -37,16 +38,17 @@ debug: bool = True
 
 
 def volume_average_downsample(
-    img: sitk.Image, outputfolder: str, cachemode: bool = False
-) -> sitk.Image:
+    img: sitk.Image, outputfolder: Path, cachemode: bool = False
+) -> tuple[sitk.Image, float]:
     """
     Downsample volume by volume averaging. Hardcoded with the following behavior
     spacing >=3: assertion error
     spacing <3, integer factor getting closes to spacing of 5 we try integer factors of 2 to 10. We do not have anything less than 0.5mm
     """
-    target_name = os.path.join(outputfolder, "downsampled.nii")
-    if cachemode and os.path.exists(target_name):
-        return sitk.ReadImage(target_name)
+    start_time = datetime.datetime.now()
+    target_name = outputfolder / "downsampled.nii.gz"
+    if cachemode and target_name.exists():
+        return sitk.ReadImage(str(target_name)), (datetime.datetime.now() - start_time).total_seconds()
     target_spacing = 5.0
     data_spacing = img.GetSpacing()[2]
     data_array = sitk.GetArrayFromImage(img)
@@ -100,8 +102,8 @@ def volume_average_downsample(
     new_img.SetDirection(img.GetDirection())
     new_img.SetSpacing((img.GetSpacing()[0], img.GetSpacing()[1], float(new_spacing)))
 
-    sitk.WriteImage(new_img, target_name)
-    return new_img
+    sitk.WriteImage(new_img, str(target_name))
+    return new_img, (datetime.datetime.now() - start_time).total_seconds()
 
 
 def verify_ncct_series_integrity(
@@ -246,20 +248,21 @@ def make_kernel(std1=5, std2=5, thickness=5.0, inplane_res=0.45):
 def smooth(
     mask,
     img,
-    outputfolder,
+    outputfolder: Path,
     valid_value_range=(0, 41),
     std1=5,
     std2=5,
     prefix="",
     cachemode=False,
-) -> sitk.Image:
+) -> tuple[sitk.Image, float]:
     """changed oct 11 to calculate window sizes automatically based on std and voxelspacing"""
-    target1 = outputfolder + "/{}smoothed.nii".format(prefix)
-    print("Smoothing {}".format(prefix))
-    if cachemode and os.path.exists(target1):
-        smoothed = sitk.ReadImage(target1)
+    start_time = datetime.datetime.now()
+    target1 = outputfolder / f"{prefix}smoothed.nii.gz"
+    print(f"Smoothing {prefix}")
+    if cachemode and target1.exists():
+        smoothed = sitk.ReadImage(str(target1))
         print(BYPASSED_MSG)
-        return smoothed
+        return smoothed, (datetime.datetime.now() - start_time).total_seconds()
 
     inres = img.GetSpacing()
     # previously we used 0.4 0.4 5mm so we can use smaller kernel now   - prev 0.4*20  = 8 pix radius so will ju 8 radius now. Padding with 16 should do then
@@ -312,44 +315,44 @@ def smooth(
 
     sitk2montage(
         sitkimg=img,
-        opname=outputfolder + "/{}smoothedAin.png".format(prefix),
+        opname=str(outputfolder / f"{prefix}smoothedAin.png"),
         value_range=(0, 60),
         every_nth_slice=1,
     )
     sitk2montage(
         sitkimg=smoothed,
-        opname=outputfolder + "/{}smoothedBsmoothedout.png".format(prefix),
+        opname=str(outputfolder / f"{prefix}smoothedBsmoothedout.png"),
         value_range=(0, 60),
         every_nth_slice=1,
     )
     sitk2montage(
         sitkimg=mask,
-        opname=outputfolder + "/{}smoothedCmaskin.png".format(prefix),
+        opname=str(outputfolder / f"{prefix}smoothedCmaskin.png"),
         value_range=(0, 1),
         every_nth_slice=1,
     )
 
-    sitk.WriteImage(smoothed, target1)
+    sitk.WriteImage(smoothed, str(target1))
 
-    return smoothed
+    return smoothed, (datetime.datetime.now() - start_time).total_seconds()
 
 
 def refine_csf_mask(
     ncct: sitk.Image,
     brainmask: sitk.Image,
     csf_soft: sitk.Image,
-    outputfolder: str,
+    outputfolder: Path,
     prefix: str = "",
     maxval: float | None = None,
     cachemode: bool = False,
     debug: bool = False,
-    debug_prefix: str = "",
-):
-    target = outputfolder + "/{}refined_tissue_mask.nii".format(prefix)
-    print("Refining CSF mask {}".format(prefix))
-    if cachemode and os.path.exists(target):
+) -> tuple[sitk.Image, float]:
+    start_time = datetime.datetime.now()
+    target = outputfolder / f"{prefix}refined_tissue_mask.nii.gz"
+    print(f"Refining CSF mask {prefix}")
+    if cachemode and target.exists():
         print(BYPASSED_MSG)
-        return sitk.ReadImage(target)
+        return sitk.ReadImage(str(target)), (datetime.datetime.now() - start_time).total_seconds()
     # Tissue is
     # inside brain mask
     # not in CSF mask (>0.25)
@@ -373,24 +376,24 @@ def refine_csf_mask(
             brainmask_arr_nocsf.astype(np.uint8), ncct
         )
 
-    sitk.WriteImage(brainmask_no_hyperintensity_or_csf_img, target)
+    sitk.WriteImage(brainmask_no_hyperintensity_or_csf_img, str(target))
 
     if debug:
         sitk2montage(
             sitkimg=ncct,
-            opname=os.path.join(outputfolder, f"{debug_prefix}_A_refinedcsfmask.png"),
+            opname=str(outputfolder / f"{prefix}A_refinedcsfmask.png"),
             value_range=(0, 60),
             every_nth_slice=1,
         )
         sitk2montage(
             sitkimg=ncct,
-            opname=os.path.join(outputfolder, f"{debug_prefix}_B_refinedcsfmask.png"),
+            opname=str(outputfolder / f"{prefix}B_refinedcsfmask.png"),
             value_range=(0, 60),
             maskovl=sitk.GetArrayFromImage(brainmask_no_hyperintensity_or_csf_img),
             every_nth_slice=1,
         )
 
-    return brainmask_no_hyperintensity_or_csf_img
+    return brainmask_no_hyperintensity_or_csf_img, (datetime.datetime.now() - start_time).total_seconds()
 
 
 def refine_mask(bmask, ncct, outputfolder, cachemode=False, fname=None):
@@ -398,11 +401,11 @@ def refine_mask(bmask, ncct, outputfolder, cachemode=False, fname=None):
     uchar3d_type = itk.Image[itk.UC, 3]
 
     if fname is None:
-        target = outputfolder / "refined_bmask.nii"
+        target = outputfolder / "refined_bmask.nii.gz"
     else:
         target = outputfolder / fname
-    if cachemode and os.path.exists(target):
-        return sitk.ReadImage(target)
+    if cachemode and target.exists():
+        return sitk.ReadImage(str(target))
 
     bmask_itk = sutl.sitk2itk(bmask)
     # performs a 2 px in-plane erosion
@@ -420,7 +423,7 @@ def refine_mask(bmask, ncct, outputfolder, cachemode=False, fname=None):
     tmpimg = erode_filter.GetOutput()
     bmask_sitk1 = sutl.itk2sitk(tmpimg)
 
-    sitk.WriteImage(bmask_sitk1, target)
+    sitk.WriteImage(bmask_sitk1, str(target))
 
     return bmask_sitk1
 
@@ -620,23 +623,46 @@ def quantitative_summary(
     imageio.v2.imwrite(os.path.join(output_folder, "quant_summary.png"), merged)
 
 
-def lesion_masks2rgb(
-    outputfolder: str,
+def get_threshold_volumes(
+    depression_map: sitk.Image, thresholds: list[float]
+) -> tuple[dict[str, float], dict[str, np.ndarray]]:
+    threshold_volumes: dict[str, float] = {}
+    threshold_masks: dict[str, np.ndarray] = {}
+    voxel_volume = np.prod(depression_map.GetSpacing()) / 1000.0  # in mm^3
+    depression_arr = sitk.GetArrayViewFromImage(depression_map)
+
+    for thold in thresholds:
+        thold_str = f"{thold:.2f}"
+        threshold_masks[thold_str] = (depression_arr >= thold).astype(np.uint8)
+        threshold_volumes[thold_str] = (
+            np.sum(threshold_masks[thold_str]) * voxel_volume
+        )  # in ml
+
+    return threshold_volumes, threshold_masks
+
+
+def threshold_lesions(
+    outputfolder: Path,
+    depression_map: sitk.Image,
     origncct: sitk.Image,
-    lesion_volumes: dict[str, float],
-    lesion_masks: dict[str, np.ndarray],
+    thresholds: list[float],
     background_min_max=(0, 60),
-) -> None:
+) -> dict[str, float]:
     """
     Create a RGB overlay of the lesion masks on top of the NCCT image.
     :param origncct: Original NCCT image
-    :param lesion_volumes: Dictionary with lesion names and their volumes
-    :param lesion_masks: Dictionary with lesion names and their binary masks
+    :param depression_map: Depression map image
+    :param thresholds: List of thresholds for lesion segmentation
     :param background_min_max: Min and max values for the background NCCT image
     :param outputfolder: Folder to save the output images
     """
 
     #
+
+    # get lesion volumes and masks
+    lesion_volumes, lesion_masks = get_threshold_volumes(depression_map, thresholds)
+
+
     assert len(lesion_volumes) < 5, "Just 4 thresholds supported for now"
 
     background_ncct_montage_rgb = imageutils.sitk2montage(
@@ -664,9 +690,11 @@ def lesion_masks2rgb(
     )
 
     imageio.v2.imwrite(
-        os.path.join(outputfolder, "masks_RGB_overlay.png"),
+        outputfolder / "masks_RGB_overlay.png",
         background_ncct_montage_rgb_txt,
     )
+
+    return lesion_volumes
 
 
 def add_volumes_to_montage(
@@ -712,7 +740,7 @@ def add_volumes_to_montage(
 def depression_map2rgb(
     depression_img: sitk.Image,
     origncct: sitk.Image,
-    outputfolder: str,
+    outputfolder: Path | None,
     depression_range: tuple[float, float] = (5.0, 15.0),
     background_min_max: tuple[float, float] = (0, 60),
     ds=None,
@@ -765,7 +793,7 @@ def depression_map2rgb(
             ]
 
         imageio.imwrite(
-            os.path.join(outputfolder, "rNCCT_A.png"),
+            outputfolder / "rNCCT_A.png",
             np.concatenate((merged_rgb, cbar_arr), axis=1),
         )
 
@@ -777,29 +805,86 @@ def depression_map2rgb(
             cropmask=cropmask,
         )
         imageio.imwrite(
-            os.path.join(outputfolder, "rNCCT_B.png"),
+            outputfolder / "rNCCT_B.png",
             np.concatenate((ncct_rgb, 0 * cbar_arr), axis=1),
         )
 
-        sitk.WriteImage(rgb_3d_img, os.path.join(outputfolder, "rncct_rgb.nii"))
+        sitk.WriteImage(rgb_3d_img, str(outputfolder / "rncct_rgb.nii"))
 
     return merged_rgb, rgb_3d_img
 
 
+def standardize_input(ncct_img: sitk.Image, output_path: Path, caching: bool = False) -> tuple[sitk.Image, sitk.Image, float]:
+    start_time = datetime.datetime.now()
+    # convert to LPS and float32 if not already
+    target1 = output_path / "input_lps.nii.gz"
+    target2 = output_path / "input_lps_centered.nii.gz"
+    if caching and target1.exists() and target2.exists():
+        return sitk.ReadImage(str(target1)), sitk.ReadImage(str(target2)), (datetime.datetime.now() - start_time).total_seconds()
+
+
+    # do we need to convert to LPS?
+    direction = ncct_img.GetDirection()
+    current_orientation = sitk.DICOMOrientImageFilter.GetOrientationFromDirectionCosines(direction)
+
+    if current_orientation != "LPS":
+        ncct_use_lps = sitk.DICOMOrient(ncct_img, "LPS")
+        # change to float
+    else:
+        ncct_use_lps = ncct_img
+
+    if ncct_use_lps.GetPixelID() != sitk.sitkFloat32:
+        ncct_use_lps = sitk.Cast(ncct_use_lps, sitk.sitkFloat32)
+
+    # modify ncct coordinate system to orthonormal with origo (not origin) at voxel center - this will make flipping operations easier
+    # and we will re-populate the output image with the original header
+    ncct_use_lps_orthonormal_centered = sitk.Image(ncct_use_lps)
+    ncct_use_lps_orthonormal_centered.SetDirection([1, 0, 0, 0, 1, 0, 0, 0, 1])
+    current_origin = np.array(ncct_use_lps_orthonormal_centered.GetOrigin())
+    image_center = sutl.image_center(ncct_use_lps_orthonormal_centered)
+    new_origin = current_origin - image_center
+    ncct_use_lps_orthonormal_centered.SetOrigin(new_origin)
+
+    sitk.WriteImage(ncct_use_lps, target1)
+    sitk.WriteImage(ncct_use_lps_orthonormal_centered, target2)
+    return ncct_use_lps, ncct_use_lps_orthonormal_centered, (datetime.datetime.now() - start_time).total_seconds()
+
+def import_input(input_path: Path, output_path: Path, caching: bool=False) -> tuple[sitk.Image, float]:
+    start_time = datetime.datetime.now()
+    nifti_name = "input_nifti.nii.gz"
+    target = output_path / nifti_name
+    if caching and target.exists():
+        print(f"Input file {target} already exists. Using cached version.")
+        return sitk.ReadImage(str(target)), (datetime.datetime.now() - start_time).total_seconds()
+
+    if input_path.is_dir():
+        dicom2nifti(
+            infolder=str(input_path),
+            output_file_url=target,
+            caching=caching)
+    else:
+        if not input_path.exists():
+            raise ValueError(f"Input file {str(input_path)} does not exist")
+        try:
+            sitk.ReadImage(str(input_path))
+        except Exception:
+            raise ValueError(f"Input file {str(input_path)} could not be read") from None
+
+        shutil.copyfile(str(input_path), target)
+
+    return sitk.ReadImage(str(target)), (datetime.datetime.now() - start_time).total_seconds()
+
 def calc_ratio(
-    ipsi_ncct_img,
     ipsi_smooth,
     mirror_smooth,
     ipsi_tissue_mask,
-    mirror_tissue_mask,
-    outputfolder,
+    outputfolder: Path,
     cachemode=False,
 ):
-    del ipsi_ncct_img
-    del mirror_tissue_mask
-    target = os.path.join(outputfolder, "pct_depression.nii")
-    if cachemode and os.path.exists(target):
-        return sitk.ReadImage(target)
+
+    target = outputfolder / "pct_depression.nii.gz"
+    if cachemode and target.exists():
+        return sitk.ReadImage(str(target))
     print("calculating ratios")
     smoothed_ipsi_arr = sitk.GetArrayFromImage(ipsi_smooth)
     smoothed_mirror_arr = sitk.GetArrayFromImage(mirror_smooth)
@@ -821,20 +906,19 @@ def calc_ratio(
     newimg[samplingmask > 0] = depression
 
     depression_img = sutl.arr2img(newimg, ipsi_smooth)
-    sitk.WriteImage(depression_img, target)
+    sitk.WriteImage(depression_img, str(target))
 
     return depression_img
 
 
-def dicom2nifti(infolder: str, outfolder: str, nifti_name: str, caching: bool = False):
-    target = os.path.join(outfolder, nifti_name)
-    if caching and os.path.exists(target):
-        return target
-    Path(outfolder).mkdir(parents=True, exist_ok=True)
+def dicom2nifti(infolder: str, output_file_url: str, caching: bool = False):
+    if caching and os.path.exists(output_file_url):
+        return sitk.ReadImage(str(output_file_url))
+    Path(os.path.dirname(output_file_url)).mkdir(parents=True, exist_ok=True)
     inputfiles = glob.glob(os.path.join(infolder, "*"))
-    ncctdicom2volume(inputfiles, target)
+    ncctdicom2volume(inputfiles, output_file_url)
 
-    return target
+    return output_file_url
 
 
 def template_reg(
@@ -846,9 +930,8 @@ def template_reg(
     cachemode: bool = False,
     template_l: str | None = None,
     debug: bool = False,
-    debug_prefix: str = "",
-) -> tuple[itk.ParameterObject, itk.ParameterObject]:
-
+) -> tuple[itk.ParameterObject, itk.ParameterObject, float]:
+    start_time = datetime.datetime.now()
     if template_l is None:
         template_l = ncct_paths.scct_unsmooth
 
@@ -860,7 +943,7 @@ def template_reg(
         t2n = itk.ParameterObject.New()
         n2t.ReadParameterFile(str(n2t_loc))
         t2n.ReadParameterFile(str(t2n_loc))
-        return t2n, n2t
+        return t2n, n2t, -1
 
     template, _ = sutl.imgnarray(template_l)
 
@@ -899,16 +982,17 @@ def template_reg(
 
         sitk2montage(
             sitkimg=ncct,
-            opname=str(outputfolder / f"{debug_prefix}_A_native.png"),
+            opname=str(outputfolder / "A_native.png"),
             value_range=(0, 60),
         )
         sitk2montage(
             sitkimg=template_native,
-            opname=str(outputfolder / f"{debug_prefix}_B_Tlnative.png"),
+            opname=str(outputfolder / "B_Tlnative.png"),
             value_range=(0, 60),
         )
 
-    return t2n, n2t
+    elapsed_time = datetime.datetime.now() - start_time
+    return t2n, n2t, elapsed_time.total_seconds()
 
 
 def plot_axis_on_image(
@@ -1022,9 +1106,8 @@ def estimate_rigid(p, q):
 def init_affine_transform_from_template_reg(
     n2t_xfm: itk.elxParameterObjectPython.elastixParameterObject,
     ncct: sitk.Image,
-    outputfolder: str,
+    outputfolder: Path,
     debug: bool = False,
-    debug_prefix: str = "",
 ) -> itk.elxParameterObjectPython.mapstringvectorstring:
     """
     Given a DTI transform from NCCT to template, estimate an initial affine transform that maps the flipped NCCT to the NCCT.
@@ -1052,18 +1135,14 @@ def init_affine_transform_from_template_reg(
         plot_axis_on_image(
             transformed_axis_points,
             ncct,
-            outpng=os.path.join(
-                outputfolder, f"{debug_prefix}_A_debug_transformed_axis.png"
-            ),
+            outpng=str(outputfolder / "pre_xfm_A_debug_transformed_axis.png"),
             flip_image=False,
         )
 
         plot_axis_on_image(
             axis_points_post_flip,
             ncct,
-            outpng=os.path.join(
-                outputfolder, f"{debug_prefix}_B_debug_transformed_axis_flipped.png"
-            ),
+            outpng=str(outputfolder / "pre_xfm_B_debug_transformed_axis_flipped.png"),
             flip_image=True,
         )
 
@@ -1076,44 +1155,43 @@ def flipped2self(
     t2n_xfm: itk.elxParameterObjectPython.elastixParameterObject,
     n2t_xfm: itk.elxParameterObjectPython.elastixParameterObject,
     skull_et_interior: str,
-    outputfolder: str,
+    outputfolder: Path,
     cachemode: bool = False,
     transformparameters_bspline_opts: dict | None = None,
     bsplinelevels: int = 3,
     transformparameters_affine_opts: dict | None = None,
     debug: bool = False,
-    debug_prefix: str = "",
-) -> tuple[sitk.Image, sitk.Image]:
+) -> tuple[sitk.Image, sitk.Image, float]:
+    start_time = datetime.datetime.now()
 
-    target0 = outputfolder + "/flip_to_self_init.txt"
-    target1 = outputfolder + "/flip_to_self_affine.txt"
-    target1a = outputfolder + "/flip_to_self_nlin.txt"
-    target2 = outputfolder + "/flipped_brain.nii"
-    target3 = outputfolder + "/flip2selfimg_mask.nii"
-    target4 = outputfolder + "/flipped_brain_usereg.nii"
-    target5 = outputfolder + "/ncct_usereg.nii"
+    target0 = outputfolder / "flip_to_self_init.txt"
+    target1 = outputfolder / "flip_to_self_affine.txt"
+    target1a = outputfolder / "flip_to_self_nlin.txt"
+    target2 = outputfolder / "flipped_brain.nii"
+    target3 = outputfolder / "flip2selfimg_mask.nii"
+    target4 = outputfolder / "flipped_brain_usereg.nii"
+    target5 = outputfolder / "ncct_usereg.nii"
 
     initial_affine_map = init_affine_transform_from_template_reg(
         n2t_xfm,
         origncct,
         outputfolder,
         debug=debug,
-        debug_prefix=debug_prefix + "pre_xfm",
     )
 
     if (
         cachemode
-        and os.path.exists(target1)
-        and os.path.exists(target1a)
-        and os.path.exists(target2)
-        and os.path.exists(target3)
-        and os.path.exists(target4)
-        and os.path.exists(target5)
+        and target1.exists()
+        and target1a.exists()
+        and target2.exists()
+        and target3.exists()
+        and target4.exists()
+        and target5.exists()
     ):
-        flip2selfimg_full = sitk.ReadImage(target2)
-        flip2selfimg_mask = sitk.ReadImage(target3)
+        flip2selfimg_full = sitk.ReadImage(str(target2))
+        flip2selfimg_mask = sitk.ReadImage(str(target3))
 
-        return flip2selfimg_full, flip2selfimg_mask
+        return flip2selfimg_full, flip2selfimg_mask, (datetime.datetime.now() - start_time).total_seconds()
 
     # lets mask the NCCT to remove headholder
     skull_et_interior_like_n = sutl.itk_resample(itk.imread(skull_et_interior), t2n_xfm)
@@ -1235,50 +1313,42 @@ def flipped2self(
         sutl.sitk2itk(ncct_flipped_img_fullrange), init_only
     )
 
-    itk.ParameterObject.WriteParameterFile(to_affine_only.GetParameterMap(0), target1)
-    itk.ParameterObject.WriteParameterFile(init_only.GetParameterMap(0), target0)
-    itk.ParameterObject.WriteParameterFile(non_lin_only.GetParameterMap(0), target1a)
+    itk.ParameterObject.WriteParameterFile(to_affine_only.GetParameterMap(0), str(target1))
+    itk.ParameterObject.WriteParameterFile(init_only.GetParameterMap(0), str(target0))
+    itk.ParameterObject.WriteParameterFile(non_lin_only.GetParameterMap(0), str(target1a))
 
-    itk.imwrite(flip2selfimg_full, target2)
-    itk.imwrite(flip2selfmask_full, target3)
-    sitk.WriteImage(ncct_flipped_img, target4)
-    sitk.WriteImage(ncct, target5)
+    itk.imwrite(flip2selfimg_full, str(target2))
+    itk.imwrite(flip2selfmask_full, str(target3))
+    sitk.WriteImage(ncct_flipped_img, str(target4))
+    sitk.WriteImage(ncct, str(target5))
 
     if debug:
         sitk2montage(
             sitkimg=ncct,
-            opname=os.path.join(
-                outputfolder, f"{debug_prefix}_A_flipped2self_self.png"
-            ),
+            opname=str(outputfolder / "A_flipped2self_self.png"),
             value_range=(0, 60),
         )
         sitk2montage(
             sitkimg=sutl.itk2sitk(flip2selfimg_full),
-            opname=os.path.join(
-                outputfolder, f"{debug_prefix}_B_flipped2self_mirror.png"
-            ),
+            opname=str(outputfolder / "B_flipped2self_mirror.png"),
             value_range=(0, 60),
         )
         shutil.copyfile(
-            os.path.join(outputfolder, f"{debug_prefix}_A_flipped2self_self.png"),
-            os.path.join(outputfolder, f"{debug_prefix}_C_flipped2self_self.png"),
+            outputfolder / "A_flipped2self_self.png",
+            outputfolder / "C_flipped2self_self.png",
         )
         sitk2montage(
             sitkimg=sutl.itk2sitk(flip2selfimg_to_affine_only),
-            opname=os.path.join(
-                outputfolder, f"{debug_prefix}_D_flipped2self_affinemirror.png"
-            ),
+            opname=str(outputfolder / "D_flipped2self_affinemirror.png"),
             value_range=(0, 60),
         )
         sitk2montage(
             sitkimg=sutl.itk2sitk(flip2selfimg_init_only),
-            opname=os.path.join(
-                outputfolder, f"{debug_prefix}_E_flipped2self_init.png"
-            ),
+            opname=str(outputfolder / "E_flipped2self_init.png"),
             value_range=(0, 60),
         )
 
-    return sutl.itk2sitk(flip2selfimg_full), sutl.itk2sitk(flip2selfmask_full)
+    return sutl.itk2sitk(flip2selfimg_full), sutl.itk2sitk(flip2selfmask_full), (datetime.datetime.now() - start_time).total_seconds()
 
 
 # def brainmasker(origncct,template_l,T2Nxfm,erodemaskloc,outputfolder,prefix='',cachemode=False,dbg=None,  b = 100,a = -5,cs = 0.3,ps = 1.0):
@@ -1324,7 +1394,6 @@ def brainmasker_candidate(
     outputfolder: Path,
     cachemode: bool = False,
     debug: bool = False,
-    debug_prefix: str = "",
     b=100,
     a=-5,
     cs=0.3,
@@ -1337,18 +1406,18 @@ def brainmasker_candidate(
     :param outputfolder:
     :param cachemode:
     :param debug:
-    :param debug_prefix:
     :param b: sigmoid beta parameter for level set brainmasking
     :param a: sigmoid alpha parameter for level set brainmasking
     :param cs: curvature scaling parameter for level set brainmasking
     :param ps: propagation scaling parameter for level set brainmasking
     :return: refined brain mask as a SimpleITK image
     """
+    start_time = datetime.datetime.now()
 
     target = outputfolder / "refined_mask.nii"
     if cachemode and target.exists():
         refined_mask = sitk.ReadImage(str(target))
-        return refined_mask
+        return refined_mask, -1
 
     # create speed image from level set.
     ncct_arr = sitk.GetArrayFromImage(origncct).astype(np.float32)
@@ -1376,7 +1445,6 @@ def brainmasker_candidate(
         propagation_scaling=ps,
         outputfolder=outputfolder,
         debug=debug,
-        debug_prefix=debug_prefix,
     )
     bmask_sitk = sutl.itk2sitk(itkmask)
 
@@ -1385,7 +1453,7 @@ def brainmasker_candidate(
     if debug:
         sitk2montage(
             sitkimg=origncct,
-            opname=os.path.join(outputfolder, f"{debug_prefix}_A_eroded_start.png"),
+            opname=str(outputfolder / "A_eroded_start.png"),
             value_range=(0, 60),
             maskovl=sitk.GetArrayFromImage(eroded_mask_native),
             mask_mix=(0, 255, 0),
@@ -1393,14 +1461,14 @@ def brainmasker_candidate(
 
         sitk2montage(
             sitkimg=origncct,
-            opname=os.path.join(outputfolder, f"{debug_prefix}_B_brainmaskedA.png"),
+            opname=str(outputfolder / "B_brainmaskedA.png"),
             value_range=(0, 60),
             mask_mix=(0, 255, 0),
         )
 
         sitk2montage(
             sitkimg=origncct,
-            opname=os.path.join(outputfolder, f"{debug_prefix}_C_brainmaskedB.png"),
+            opname=str(outputfolder / "C_brainmaskedB.png"),
             value_range=(0, 60),
             maskovl=sitk.GetArrayFromImage(refined_mask),
             mask_mix=(0, 255, 0),
@@ -1408,42 +1476,42 @@ def brainmasker_candidate(
 
     sitk.WriteImage(refined_mask, str(target))
 
-    return refined_mask
+    return refined_mask, (datetime.datetime.now() - start_time).total_seconds()
 
 
 def csf_seg(
     img: sitk.Image,
     mask: sitk.Image,
-    outputfolder: str,
+    outputfolder: Path,
     prefix: str = "",
     cachemode: bool = False,
     debug: bool = False,
-    debug_prefix: str = "",
-) -> sitk.Image:
-    target = outputfolder + "/{}csfsegmentation.nii".format(prefix)
+) -> tuple[sitk.Image, float]:
+    start_time = datetime.datetime.now()
+    target = outputfolder / f"{prefix}csfsegmentation.nii.gz"
     print("CSF segmenting {}".format(prefix))
-    if cachemode and os.path.exists(target):
+    if cachemode and target.exists():
         print(BYPASSED_MSG)
-        return sitk.ReadImage(target)
+        return sitk.ReadImage(str(target)),-1
 
     predmat_img = csf_seg_pytorch(img=img, mask=mask)
 
     if debug:
         imageutils.sitk2montage(
             sitkimg=img,
-            opname=outputfolder + f"/{debug_prefix}_A_csfmask.png",
+            opname=str(outputfolder / f"{prefix}A_csfmask.png"),
             value_range=(0, 60),
         )
         imageutils.sitk2montage(
             sitkimg=img,
-            opname=outputfolder + f"/{debug_prefix}_B_csfmask.png",
+            opname=str(outputfolder / f"{prefix}B_csfmask.png"),
             value_range=(0, 60),
             maskovl=predmat_img,
         )
 
-    sitk.WriteImage(predmat_img, target)
+    sitk.WriteImage(predmat_img, str(target))
 
-    return predmat_img
+    return predmat_img, (datetime.datetime.now() - start_time).total_seconds()
 
 
 def level_set_brainmask(
@@ -1456,7 +1524,6 @@ def level_set_brainmask(
     curvature_scaling=0.9,
     propagation_scaling=0.9,
     debug: bool = False,
-    debug_prefix: str = "",
 ):
     float3dtype = itk.Image[itk.F, 3]
     uchar3dtype = itk.Image[itk.UC, 3]
@@ -1488,7 +1555,7 @@ def level_set_brainmask(
                 img = thresholder.GetOutput()
                 sutl.sitk2montage(
                     sitkimg=sutl.itk2sitk(inputimg),
-                    opname=str(outputfolder / f"{debug_prefix}_IM_{k:04d}.png"),
+                    opname=str(outputfolder / f"IM_{k:04d}.png"),
                     value_range=[0, 100],
                     maskovl=itk.GetArrayFromImage(img),
                     mask_mix=[0, 255, 0],
@@ -1515,7 +1582,7 @@ def level_set_brainmask(
     if debug:
         write_floatimg(
             mask_distancemap.GetOutput(),
-            str(outputfolder / f"{debug_prefix}_mask_distance.mha"),
+            str(outputfolder / "mask_distance.mha"),
         )
 
     if use_gradient:
@@ -1537,11 +1604,11 @@ def level_set_brainmask(
         if debug:
             write_floatimg(
                 smoothing.GetOutput(),
-                str(outputfolder / f"{debug_prefix}_smoothed.mha"),
+                str(outputfolder / "smoothed.mha"),
             )
             write_floatimg(
                 gradientmagnitude.GetOutput(),
-                str(outputfolder / f"{debug_prefix}_gradientmag.mha"),
+                str(outputfolder / "gradientmag.mha"),
             )
 
     sigmoidfiltertype = itk.SigmoidImageFilter[float3dtype, float3dtype]
@@ -1559,7 +1626,7 @@ def level_set_brainmask(
 
     if debug:
         write_floatimg(
-            sigmoid.GetOutput(), str(outputfolder / f"{debug_prefix}_sigmoid.mha")
+            sigmoid.GetOutput(), str(outputfolder / "sigmoid.mha")
         )
     # preprocess NCCT
 
@@ -1587,7 +1654,7 @@ def level_set_brainmask(
 
     if debug:
         maskwriter.SetInput(thresholder.GetOutput())
-        maskwriter.SetFileName(str(outputfolder / f"{debug_prefix}_dbgmaskout.mha"))
+        maskwriter.SetFileName(str(outputfolder / "dbgmaskout.mha"))
         maskwriter.Update()
 
     thresholder.Update()
