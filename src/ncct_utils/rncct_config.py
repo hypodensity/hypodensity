@@ -1,14 +1,10 @@
 from dataclasses import dataclass
-from typing import Optional
-
 from datargs import arg
 
 
 @dataclass
 class rNCCTConfig:
-    output: str = arg(
-        "-o", default=None, help="output, DICOM format", metavar="url"
-    )
+    output: str = arg("-o", default=None, help="output, DICOM format", metavar="url")
     input: str = arg(
         "-i",
         default=None,

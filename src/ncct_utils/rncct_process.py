@@ -15,10 +15,8 @@ In order to estimate the flip to self xfm we need the origin and cosines for mov
 
 import json
 import os
-import shutil
 from pathlib import Path
 
-import numpy as np
 import SimpleITK as sitk
 
 from ncct_utils import ncct_paths
@@ -37,7 +35,6 @@ from ncct_utils.rNCCTfunctions import (
     template_reg,
     volume_average_downsample,
 )
-from regutils import simpleelastix_utils as sutl
 
 template_l = ncct_paths.scct_unsmooth
 erodemaskloc = ncct_paths.eroded_mask
@@ -52,14 +49,14 @@ def run_config(config: rNCCTConfig) -> None:
         )
         return
 
-
     process(config)
 
 
-
-
 def write_processing_summary(
-    config: rNCCTConfig, output_path: str, lesion_volumes: dict[str, float], elapsed_times: dict[str, float]
+    config: rNCCTConfig,
+    output_path: str,
+    lesion_volumes: dict[str, float],
+    elapsed_times: dict[str, float],
 ) -> None:
     # write summary json file
     summary_file = os.path.join(output_path, "processing_summary.json")
@@ -83,11 +80,22 @@ def write_processing_summary(
 
 def process(config: rNCCTConfig) -> None:
     stage_names = [
-    "import","standard_orientation","downsample", "template_reg", "brainmasking", "mirroring",
-    "csf_seg", "refine_csf_mask", "smooth", "ratio",
-    "depression_rgb", "lesion_masks",
+        "import",
+        "standard_orientation",
+        "downsample",
+        "template_reg",
+        "brainmasking",
+        "mirroring",
+        "csf_seg",
+        "refine_csf_mask",
+        "smooth",
+        "ratio",
+        "depression_rgb",
+        "lesion_masks",
     ]
-    sd = {s: Path(config.output) / f"{indx:02d}_{s}" for indx, s in enumerate(stage_names)}
+    sd = {
+        s: Path(config.output) / f"{indx:02d}_{s}" for indx, s in enumerate(stage_names)
+    }
     for d in sd.values():
         d.mkdir(exist_ok=True, parents=True)
     elapsed_times = {}
@@ -97,25 +105,21 @@ def process(config: rNCCTConfig) -> None:
 
     output_path = config.output
 
-
-
     Path(output_path).mkdir(exist_ok=True, parents=True)
 
     ncct_imported, elapsed_times["import"] = import_input(
-        Path(config.input), output_path=sd["import"], caching=config.caching)
+        Path(config.input), output_path=sd["import"], caching=config.caching
+    )
 
-
-    ncct_lps, ncct_lps_centered, elapsed_times["standard_orientation"] = standardize_input(ncct_imported, sd["standard_orientation"], config.caching)
-
-
-
+    ncct_lps, ncct_lps_centered, elapsed_times["standard_orientation"] = (
+        standardize_input(ncct_imported, sd["standard_orientation"], config.caching)
+    )
 
     # check if we need to downsample
     if config.thin2thick and ncct_lps_centered.GetSpacing()[2] < 3.0:
         ncct_lps_centered, elapsed_times["downsample"] = volume_average_downsample(
             ncct_lps_centered, outputfolder=sd["downsample"], cachemode=config.caching
         )
-
 
     # Template reg for masking
     t2n_xfm, n2t_xfm, elapsed_times["template_reg"] = template_reg(
@@ -148,14 +152,14 @@ def process(config: rNCCTConfig) -> None:
         debug=config.debug,
     )
 
-    csf_ipsi_soft,  elapsed_times["csf_seg_ipsi"] = csf_seg(
+    csf_ipsi_soft, elapsed_times["csf_seg_ipsi"] = csf_seg(
         ncct_lps_centered,
         ipsi_brainmask,
         sd["csf_seg"],
         prefix="ipsi_",
         cachemode=config.caching,
     )
-    
+
     csf_mirror_soft, elapsed_times["csf_seg_contra"] = csf_seg(
         mirror_brain,
         mirror_brainmask,
@@ -223,7 +227,6 @@ def process(config: rNCCTConfig) -> None:
         cachemode=config.caching,
     )
 
-
     # rgb colormap overlay
     depression_map2rgb(
         depression_map,
@@ -241,6 +244,5 @@ def process(config: rNCCTConfig) -> None:
         thresholds=config.get_thresholds(),
         background_min_max=(0, 60),
     )
-
 
     write_processing_summary(config, output_path, lesion_volumes, elapsed_times)

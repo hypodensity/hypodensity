@@ -9,7 +9,6 @@ from pathlib import Path
 
 import cv2
 import imageio
-from imageio import config
 import itk
 import matplotlib as mpl
 import numpy as np
@@ -48,7 +47,9 @@ def volume_average_downsample(
     start_time = datetime.datetime.now()
     target_name = outputfolder / "downsampled.nii.gz"
     if cachemode and target_name.exists():
-        return sitk.ReadImage(str(target_name)), (datetime.datetime.now() - start_time).total_seconds()
+        return sitk.ReadImage(str(target_name)), (
+            datetime.datetime.now() - start_time
+        ).total_seconds()
     target_spacing = 5.0
     data_spacing = img.GetSpacing()[2]
     data_array = sitk.GetArrayFromImage(img)
@@ -352,7 +353,9 @@ def refine_csf_mask(
     print(f"Refining CSF mask {prefix}")
     if cachemode and target.exists():
         print(BYPASSED_MSG)
-        return sitk.ReadImage(str(target)), (datetime.datetime.now() - start_time).total_seconds()
+        return sitk.ReadImage(str(target)), (
+            datetime.datetime.now() - start_time
+        ).total_seconds()
     # Tissue is
     # inside brain mask
     # not in CSF mask (>0.25)
@@ -393,7 +396,9 @@ def refine_csf_mask(
             every_nth_slice=1,
         )
 
-    return brainmask_no_hyperintensity_or_csf_img, (datetime.datetime.now() - start_time).total_seconds()
+    return brainmask_no_hyperintensity_or_csf_img, (
+        datetime.datetime.now() - start_time
+    ).total_seconds()
 
 
 def refine_mask(bmask, ncct, outputfolder, cachemode=False, fname=None):
@@ -662,7 +667,6 @@ def threshold_lesions(
     # get lesion volumes and masks
     lesion_volumes, lesion_masks = get_threshold_volumes(depression_map, thresholds)
 
-
     assert len(lesion_volumes) < 5, "Just 4 thresholds supported for now"
 
     background_ncct_montage_rgb = imageutils.sitk2montage(
@@ -814,18 +818,25 @@ def depression_map2rgb(
     return merged_rgb, rgb_3d_img
 
 
-def standardize_input(ncct_img: sitk.Image, output_path: Path, caching: bool = False) -> tuple[sitk.Image, sitk.Image, float]:
+def standardize_input(
+    ncct_img: sitk.Image, output_path: Path, caching: bool = False
+) -> tuple[sitk.Image, sitk.Image, float]:
     start_time = datetime.datetime.now()
     # convert to LPS and float32 if not already
     target1 = output_path / "input_lps.nii.gz"
     target2 = output_path / "input_lps_centered.nii.gz"
     if caching and target1.exists() and target2.exists():
-        return sitk.ReadImage(str(target1)), sitk.ReadImage(str(target2)), (datetime.datetime.now() - start_time).total_seconds()
-
+        return (
+            sitk.ReadImage(str(target1)),
+            sitk.ReadImage(str(target2)),
+            (datetime.datetime.now() - start_time).total_seconds(),
+        )
 
     # do we need to convert to LPS?
     direction = ncct_img.GetDirection()
-    current_orientation = sitk.DICOMOrientImageFilter.GetOrientationFromDirectionCosines(direction)
+    current_orientation = (
+        sitk.DICOMOrientImageFilter.GetOrientationFromDirectionCosines(direction)
+    )
 
     if current_orientation != "LPS":
         ncct_use_lps = sitk.DICOMOrient(ncct_img, "LPS")
@@ -847,32 +858,45 @@ def standardize_input(ncct_img: sitk.Image, output_path: Path, caching: bool = F
 
     sitk.WriteImage(ncct_use_lps, target1)
     sitk.WriteImage(ncct_use_lps_orthonormal_centered, target2)
-    return ncct_use_lps, ncct_use_lps_orthonormal_centered, (datetime.datetime.now() - start_time).total_seconds()
+    return (
+        ncct_use_lps,
+        ncct_use_lps_orthonormal_centered,
+        (datetime.datetime.now() - start_time).total_seconds(),
+    )
 
-def import_input(input_path: Path, output_path: Path, caching: bool=False) -> tuple[sitk.Image, float]:
+
+def import_input(
+    input_path: Path, output_path: Path, caching: bool = False
+) -> tuple[sitk.Image, float]:
     start_time = datetime.datetime.now()
     nifti_name = "input_nifti.nii.gz"
     target = output_path / nifti_name
     if caching and target.exists():
         print(f"Input file {target} already exists. Using cached version.")
-        return sitk.ReadImage(str(target)), (datetime.datetime.now() - start_time).total_seconds()
+        return sitk.ReadImage(str(target)), (
+            datetime.datetime.now() - start_time
+        ).total_seconds()
 
     if input_path.is_dir():
         dicom2nifti(
-            infolder=str(input_path),
-            output_file_url=target,
-            caching=caching)
+            infolder=str(input_path), output_file_url=str(target), caching=caching
+        )
     else:
         if not input_path.exists():
             raise ValueError(f"Input file {str(input_path)} does not exist")
         try:
             sitk.ReadImage(str(input_path))
         except Exception:
-            raise ValueError(f"Input file {str(input_path)} could not be read") from None
+            raise ValueError(
+                f"Input file {str(input_path)} could not be read"
+            ) from None
 
         shutil.copyfile(str(input_path), target)
 
-    return sitk.ReadImage(str(target)), (datetime.datetime.now() - start_time).total_seconds()
+    return sitk.ReadImage(str(target)), (
+        datetime.datetime.now() - start_time
+    ).total_seconds()
+
 
 def calc_ratio(
     ipsi_smooth,
@@ -1191,7 +1215,11 @@ def flipped2self(
         flip2selfimg_full = sitk.ReadImage(str(target2))
         flip2selfimg_mask = sitk.ReadImage(str(target3))
 
-        return flip2selfimg_full, flip2selfimg_mask, (datetime.datetime.now() - start_time).total_seconds()
+        return (
+            flip2selfimg_full,
+            flip2selfimg_mask,
+            (datetime.datetime.now() - start_time).total_seconds(),
+        )
 
     # lets mask the NCCT to remove headholder
     skull_et_interior_like_n = sutl.itk_resample(itk.imread(skull_et_interior), t2n_xfm)
@@ -1313,9 +1341,13 @@ def flipped2self(
         sutl.sitk2itk(ncct_flipped_img_fullrange), init_only
     )
 
-    itk.ParameterObject.WriteParameterFile(to_affine_only.GetParameterMap(0), str(target1))
+    itk.ParameterObject.WriteParameterFile(
+        to_affine_only.GetParameterMap(0), str(target1)
+    )
     itk.ParameterObject.WriteParameterFile(init_only.GetParameterMap(0), str(target0))
-    itk.ParameterObject.WriteParameterFile(non_lin_only.GetParameterMap(0), str(target1a))
+    itk.ParameterObject.WriteParameterFile(
+        non_lin_only.GetParameterMap(0), str(target1a)
+    )
 
     itk.imwrite(flip2selfimg_full, str(target2))
     itk.imwrite(flip2selfmask_full, str(target3))
@@ -1348,7 +1380,11 @@ def flipped2self(
             value_range=(0, 60),
         )
 
-    return sutl.itk2sitk(flip2selfimg_full), sutl.itk2sitk(flip2selfmask_full), (datetime.datetime.now() - start_time).total_seconds()
+    return (
+        sutl.itk2sitk(flip2selfimg_full),
+        sutl.itk2sitk(flip2selfmask_full),
+        (datetime.datetime.now() - start_time).total_seconds(),
+    )
 
 
 # def brainmasker(origncct,template_l,T2Nxfm,erodemaskloc,outputfolder,prefix='',cachemode=False,dbg=None,  b = 100,a = -5,cs = 0.3,ps = 1.0):
@@ -1398,7 +1434,7 @@ def brainmasker_candidate(
     a=-5,
     cs=0.3,
     ps=1.0,
-) -> sitk.Image:
+) -> tuple[sitk.Image, float]:
     """
     :param origncct:
     :param t2n_xfm:
@@ -1492,7 +1528,7 @@ def csf_seg(
     print("CSF segmenting {}".format(prefix))
     if cachemode and target.exists():
         print(BYPASSED_MSG)
-        return sitk.ReadImage(str(target)),-1
+        return sitk.ReadImage(str(target)), -1
 
     predmat_img = csf_seg_pytorch(img=img, mask=mask)
 
@@ -1625,9 +1661,7 @@ def level_set_brainmask(
     sigmoid.SetInput(inputimg)
 
     if debug:
-        write_floatimg(
-            sigmoid.GetOutput(), str(outputfolder / "sigmoid.mha")
-        )
+        write_floatimg(sigmoid.GetOutput(), str(outputfolder / "sigmoid.mha"))
     # preprocess NCCT
 
     shapedetectionlevelsetimagefiltertype = itk.ShapeDetectionLevelSetImageFilter[
