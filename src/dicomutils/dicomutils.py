@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import os
+from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
@@ -472,7 +473,7 @@ def dicomscan(
     return foundseries
 
 
-def write_ct_dicom(fileloc: str, matrix: np.ndarray, header: Dict[str, Any]) -> None:
+def write_ct_dicom(fileloc: Path, matrix: np.ndarray, header: Dict[str, Any]) -> None:
 
     sop_instance_uid = pydicom.uid.generate_uid()
     file_meta = pydicom.dataset.FileMetaDataset()
@@ -559,17 +560,16 @@ def write_ct_dicom(fileloc: str, matrix: np.ndarray, header: Dict[str, Any]) -> 
 
     ds.SOPInstanceUID = sop_instance_uid
 
-    ds.save_as(fileloc)
+    ds.save_as(str(fileloc))
 
 
 def sitk2generic_ct(
     ct: sitk.Image,
-    ct_outfolder: str,
+    ct_outfolder: Path,
     seriesheader: Dict[str, Any] | None = None,
     instance_number_start: int = 0,
 ) -> None:
-    if not os.path.exists(ct_outfolder):
-        os.makedirs(ct_outfolder)
+    ct_outfolder.mkdir(parents=True, exist_ok=True)
 
     ctarr = sitk.GetArrayViewFromImage(ct)
     spacing = ct.GetSpacing()
@@ -584,10 +584,16 @@ def sitk2generic_ct(
             "{:2.8f}".format(spacing[1]),
         ],
         "PatientID": "Noname",
+        "PatientBirthDate": "19000101",
         "PatientSex": "F",
         "PatientName": "Noname",
         "StudyDescription": "IndescriptStudy",
         "SeriesDescription": "IndescriptSeries",
+
+        "StudyDate": datetime.datetime.now().strftime("%Y%m%d"),
+        "StudyTime": datetime.datetime.now().strftime("%H%M%S"),
+        "SeriesDate": datetime.datetime.now().strftime("%Y%m%d"),
+        "SeriesTime": datetime.datetime.now().strftime("%H%M%S"),
         "Modality": "CT",
         "RescaleSlope": 1,
         "RescaleIntercept": -1024,
@@ -619,7 +625,7 @@ def sitk2generic_ct(
         header_use["ImageOrientationPatient"] = IOP
 
         write_ct_dicom(
-            ct_outfolder + "/" + SOPInstanceUID + ".dcm",
+            ct_outfolder / (SOPInstanceUID + ".dcm"),
             ctarr[k, :, :] - header["RescaleIntercept"],
             header_use,
         )

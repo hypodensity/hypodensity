@@ -616,7 +616,7 @@ def itk_resample(
     return resampled
 
 
-# def resample(
+# def sitk_resample(
 #     moving: sitk.Image,
 #     xfm: list[sitk.ParameterMap],
 #     invert: bool = False,

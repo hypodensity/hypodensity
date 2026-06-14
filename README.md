@@ -75,3 +75,7 @@ Please use the dscussion tab in the github link
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+This project uses data from [neurolabusc/Clinical](https://github.com/neurolabusc/Clinical), which is licensed under the BSD 2-Clause License (Copyright © 2021 Chris Rorden). See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for the full text.
+
+## 

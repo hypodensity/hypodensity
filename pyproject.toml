@@ -112,6 +112,7 @@ dev = [
   "isort>=7.0.0",
   "mypy>=1.19.1",
   "pre-commit>=4.5.1",
+  "pytest>=9.0.2",
   "ruff>=0.15.1",
   "setuptools>=80.9.0",
   "setuptools-scm>=9.2.2",
@@ -122,6 +123,9 @@ dev = [
 write_to = "src/ncct_utils/_version.py"
 write_to_template = "__version__ = {version!r}"
 
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
 
 [tool.ruff]
 target-version = "py310"
