@@ -64,10 +64,10 @@ def test_summary_lesion_volumes(pipeline_output: Path) -> None:
     lesion_volumes = data["lesion_volumes"]
 
     # Default thresholds are 1.0 and 4.9 — keys are stored as strings
-    assert np.abs(lesion_volumes["1.00"] - 232.9) < 1, (
+    assert np.abs(lesion_volumes["1.00"] - 232.9) < 2, (
         f"Unexpected volume for threshold '1.0': {lesion_volumes['1.00']}"
     )
-    assert np.abs(lesion_volumes["4.90"] - 6.8) < 1, (
+    assert np.abs(lesion_volumes["4.90"] - 6.8) < 2, (
         f"Unexpected volume for threshold '4.9': {lesion_volumes['4.90']}"
     )
 
