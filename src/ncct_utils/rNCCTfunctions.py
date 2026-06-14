@@ -711,7 +711,8 @@ def add_volumes_to_montage(
     # get a drawing context
     drawing_context = ImageDraw.Draw(volume_image)
 
-    font = ImageFont.truetype("UbuntuMono-R.ttf", size=82)
+    _font_path = Path(__file__).parent.parent / "dicomutils" / "data" / "FreeMono.ttf"
+    font = ImageFont.truetype(str(_font_path), size=82)
 
     square_rel_start = -80
     square_w = 70
