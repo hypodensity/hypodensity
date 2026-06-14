@@ -589,7 +589,6 @@ def sitk2generic_ct(
         "PatientName": "Noname",
         "StudyDescription": "IndescriptStudy",
         "SeriesDescription": "IndescriptSeries",
-
         "StudyDate": datetime.datetime.now().strftime("%Y%m%d"),
         "StudyTime": datetime.datetime.now().strftime("%H%M%S"),
         "SeriesDate": datetime.datetime.now().strftime("%Y%m%d"),

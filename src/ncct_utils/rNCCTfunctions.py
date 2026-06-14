@@ -949,7 +949,7 @@ def template_reg(
     *,
     origncct: sitk.Image,
     outputfolder: Path,
-    registration_parameters_url: str | None =None,
+    registration_parameters_url: str | None = None,
     fixedmask: sitk.Image | None = None,
     cachemode: bool = False,
     template_l: str | None = None,
