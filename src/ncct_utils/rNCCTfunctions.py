@@ -1424,6 +1424,29 @@ def flipped2self(
 #                       maskovl=sitk.GetArrayFromImage(refined_mask), mask_mix=[0, 255, 0])
 
 
+def brainmasker_unet(
+    origncct: sitk.Image,
+    outputfolder: Path,
+    model_path: str,
+    cachemode: bool = False,
+) -> tuple[sitk.Image, float]:
+    from ncct_utils.nnunet_brainmask import run_inference_single_image
+
+    start_time = datetime.datetime.now()
+    target = outputfolder / "refined_mask.nii"
+    if cachemode and target.exists():
+        return sitk.ReadImage(str(target)), -1
+
+    brainmask = run_inference_single_image(
+        model_folder=model_path,
+        image=origncct,
+        folds=(0, 1, 2, 3, 4),
+        output_path=str(target),
+        device=None,
+    )
+    return brainmask, (datetime.datetime.now() - start_time).total_seconds()
+
+
 def brainmasker_candidate(
     origncct: sitk.Image,
     t2n_xfm: itk.elxParameterObjectPython.elastixParameterObject,

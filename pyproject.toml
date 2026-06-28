@@ -91,6 +91,9 @@ dev = [
   "pytest",
   "mypy"
 ]
+unet = [
+  "nnunetv2>=2.6.4",
+]
 
 [tool.black]
 line-length = 88

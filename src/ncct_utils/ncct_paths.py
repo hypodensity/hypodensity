@@ -17,3 +17,5 @@ three_d_transform_template = os.path.join(resources_path, "3dtrans_ident.txt")
 template_registration_parameters = os.path.join(
     resources_path, "affineDTI_template.txt"
 )
+
+unet_brainmask_model: str | None = os.environ.get("NCCT_UNET_BRAINMASK_MODEL", None)

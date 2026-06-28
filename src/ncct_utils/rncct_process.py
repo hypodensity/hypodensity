@@ -33,6 +33,7 @@ from ncct_utils.rNCCTfunctions import (
     refine_csf_mask,
     smooth,
     template_reg,
+    brainmasker_unet,
     volume_average_downsample,
 )
 
@@ -131,14 +132,28 @@ def process(config: rNCCTConfig) -> None:
         registration_parameters_url=ncct_paths.template_registration_parameters,
     )
 
-    ipsi_brainmask, elapsed_times["brainmasking"] = brainmasker_candidate(
-        ncct_lps_centered,
-        t2n_xfm,
-        erodemaskloc,
-        outputfolder=sd["brainmasking"],
-        cachemode=config.caching,
-        debug=config.debug,
-    )
+    if config.unet_brainmask:
+        model_path = config.unet_brainmask_model_path or ncct_paths.unet_brainmask_model
+        if model_path is None:
+            raise ValueError(
+                "UNet brain masking requires a model path. "
+                "Set --unet-brainmask-model or NCCT_UNET_BRAINMASK_MODEL."
+            )
+        ipsi_brainmask, elapsed_times["brainmasking"] = brainmasker_unet(
+            ncct_lps_centered,
+            outputfolder=sd["brainmasking"],
+            model_path=model_path,
+            cachemode=config.caching,
+        )
+    else:
+        ipsi_brainmask, elapsed_times["brainmasking"] = brainmasker_candidate(
+            ncct_lps_centered,
+            t2n_xfm,
+            erodemaskloc,
+            outputfolder=sd["brainmasking"],
+            cachemode=config.caching,
+            debug=config.debug,
+        )
 
     # flipping
     mirror_brain, mirror_brainmask, elapsed_times["mirroring"] = flipped2self(

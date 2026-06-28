@@ -67,7 +67,7 @@ def test_summary_lesion_volumes(pipeline_output: Path) -> None:
     assert np.abs(lesion_volumes["1.00"] - 232.9) < 2, (
         f"Unexpected volume for threshold '1.0': {lesion_volumes['1.00']}"
     )
-    assert np.abs(lesion_volumes["4.90"] - 6.8) < 2, (
+    assert np.abs(lesion_volumes["4.90"] - 6.8) < 1, (
         f"Unexpected volume for threshold '4.9': {lesion_volumes['4.90']}"
     )
 

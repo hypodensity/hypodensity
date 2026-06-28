@@ -35,6 +35,21 @@ class rNCCTConfig:
     thresholds: str = arg(
         default="1,4.9", help="Thresholds for volume calculation", metavar="float"
     )
+    unet_brainmask: bool = arg(
+        "--unet-brainmask",
+        default=False,
+        help="Use UNet-based brain masking instead of the level-set candidate method",
+    )
+
+    unet_brainmask_model_path: str | None = arg(
+        "--unet-brainmask-model",
+        default=None,
+        help=(
+            "Path to nnUNetv2 model folder for UNet-based brain masking. "
+            "Overrides the NCCT_UNET_BRAINMASK_MODEL environment variable."
+        ),
+        metavar="path",
+    )
     version: bool = arg("--version", default=False, help="Print version and exit")
 
     def get_thresholds(self) -> list[float]:

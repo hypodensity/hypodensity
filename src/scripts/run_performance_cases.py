@@ -58,6 +58,9 @@ def run(config: Config) -> None:
                 "--output",
                 str(output_path),
                 "--thin2thick",
+                "--unet-brainmask",
+                "--unet-brainmask-model",
+                "/home/sorenc/CODE/praneeta_unet/Dataset006_d3bm/nnUNetTrainer__nnUNetPlans__3d_fullres",
             ]
         )
 
