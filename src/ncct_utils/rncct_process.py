@@ -111,15 +111,17 @@ def process(config: rNCCTConfig) -> None:
         Path(config.input), output_path=sd["import"], caching=config.caching
     )
 
+    # check if we need to downsample
+    if config.thin2thick and ncct_imported.GetSpacing()[2] < 3.0:
+        ncct_imported, elapsed_times["downsample"] = volume_average_downsample(
+            ncct_imported, outputfolder=sd["downsample"], cachemode=config.caching
+        )
+
+
     ncct_lps, ncct_lps_centered, elapsed_times["standard_orientation"] = (
         standardize_input(ncct_imported, sd["standard_orientation"], config.caching)
     )
 
-    # check if we need to downsample
-    if config.thin2thick and ncct_lps_centered.GetSpacing()[2] < 3.0:
-        ncct_lps_centered, elapsed_times["downsample"] = volume_average_downsample(
-            ncct_lps_centered, outputfolder=sd["downsample"], cachemode=config.caching
-        )
 
     # Template reg for masking
     t2n_xfm, n2t_xfm, elapsed_times["template_reg"] = template_reg(
@@ -213,11 +215,11 @@ def process(config: rNCCTConfig) -> None:
 
     # we are done with coordinte related processing. Lets get the original directions put back in
     ncct_lps_original_origo = sitk.Image(ncct_lps_centered)
-    ncct_lps_original_origo.CopyInformation(ncct_lps)
-    ipsi_smooth.CopyInformation(ncct_lps)
-    mirror_smooth.CopyInformation(ncct_lps)
-    ipsi_tissue_mask.CopyInformation(ncct_lps)
-    mirror_tissue_mask.CopyInformation(ncct_lps)
+    ncct_lps_original_origo.CopyInformation(ncct_imported)
+    ipsi_smooth.CopyInformation(ncct_imported)
+    mirror_smooth.CopyInformation(ncct_imported)
+    ipsi_tissue_mask.CopyInformation(ncct_imported)
+    mirror_tissue_mask.CopyInformation(ncct_imported)
     # calc ratios
     depression_map = calc_ratio(
         ipsi_smooth,
